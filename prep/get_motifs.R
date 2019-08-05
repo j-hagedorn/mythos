@@ -2,6 +2,9 @@
 
 library(tidyverse); library(rvest)
 
+# url <- "https://sites.ualberta.ca/~urban/Projects/English/Content/a.htm"
+# section_name <- "Myths"
+
 get_motifs <- function(section_name,url){
   library(tidyverse); library(rvest)
   
@@ -26,14 +29,28 @@ get_motifs <- function(section_name,url){
       notes = str_sub(value,start = str_locate(value,"\\.")[,1] + 1)
     ) %>%
     select(section,name,notes) %>%
-    mutate_at(.vars = vars(section,name),.funs = list(~str_trim)) %>%
-    # Remove final 
+    mutate_all(.funs = list(~str_trim(.))) %>%
+    mutate_all(.funs = list(~na_if(.,""))) %>%
+    filter(!section %in% c("Note:","DETAILED")) %>%
+    # Remove final decimal/dot
     mutate(section = str_remove(section,"\\.$")) %>%
     separate(section, into = c("a","b","c","d","e"),sep = "\\.",remove = F) %>%
     filter(!is.na(name)) %>%
+    # Remove title levels which are duplicated beneath
+    filter(!str_detect(name,"†")) %>%
+    filter(str_length(section) > 1) %>% 
+    # Working up to here
+    #############
     mutate(
       name = str_to_title(name),
-      level_0 = ifelse(str_detect(section,pattern = "†"),name,NA),
+      heading = case_when(
+        !str_detect(lag(section),pattern = "--") & str_detect(section,pattern = "--") ~ "0_0",
+        str_detect(lead(section),pattern = "--") & str_detect(section,pattern = "--") ~ "0_2",
+        str_detect(section,pattern = "--") ~ "0_1"
+      ),
+      level_0_0 = ifelse(heading == "0_0",name, NA),
+      level_0_1 = ifelse(heading == "0_1",name, NA),
+      level_0_2 = ifelse(heading == "0_2",name, NA),
       level_1 = ifelse(!is.na(a)&is.na(b)&is.na(c)&is.na(d)&is.na(e),name,NA),
       level_2 = ifelse(!is.na(a)&!is.na(b)&is.na(c)&is.na(d)&is.na(e),name,NA),
       level_3 = ifelse(!is.na(a)&!is.na(b)&!is.na(c)&is.na(d)&is.na(e),name,NA),
