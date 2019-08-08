@@ -1,0 +1,44 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+ 
+
+```{r, load}
+library(tidyverse);library(tidygraph);library(ggraph)
+motifs <- feather::read_feather("data/motifs.feather")
+source("prep/motif_network.R")
+```
+
+```{r}
+
+```
+
+
+```{r}
+df %>%
+  group_by(section_name,level_0,level_1,level_2) %>%
+  summarize(
+    n = n(),
+    nas = sum(is.na(name))
+  ) %>%
+  View()
+```
+
+
+
+```{r} 
+ntwk %>%
+  activate(nodes) %>%
+  filter()
+  as_tibble() %>% View()
+```
+
+```{r}
+ntwk %>%
+  ggraph(layout = 'dendrogram', circular = FALSE) + 
+  geom_edge_link() +
+  theme_void()
+```
+

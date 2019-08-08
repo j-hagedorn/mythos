@@ -39,33 +39,38 @@ get_motifs <- function(section_name,url){
     # Remove title levels which are duplicated beneath
     filter(!str_detect(name,"†")) %>%
     filter(str_length(section) > 1) %>% 
-    # Working up to here
-    #############
     mutate(
       name = str_to_title(name),
-      heading = case_when(
-        !str_detect(lag(section),pattern = "--") & str_detect(section,pattern = "--") ~ "0_0",
-        str_detect(lead(section),pattern = "--") & str_detect(section,pattern = "--") ~ "0_2",
-        str_detect(section,pattern = "--") ~ "0_1"
-      ),
-      level_0_0 = ifelse(heading == "0_0",name, NA),
-      level_0_1 = ifelse(heading == "0_1",name, NA),
-      level_0_2 = ifelse(heading == "0_2",name, NA),
+      level_0 = ifelse(str_detect(section,pattern = "--"),name,NA),
       level_1 = ifelse(!is.na(a)&is.na(b)&is.na(c)&is.na(d)&is.na(e),name,NA),
-      level_2 = ifelse(!is.na(a)&!is.na(b)&is.na(c)&is.na(d)&is.na(e),name,NA),
+      level_2 = ifelse(!is.na(a)&!is.na(b)&is.na(c)&is.na(d)&is.na(e)&is.na(level_0),name,NA),
       level_3 = ifelse(!is.na(a)&!is.na(b)&!is.na(c)&is.na(d)&is.na(e),name,NA),
       level_4 = ifelse(!is.na(a)&!is.na(b)&!is.na(c)&!is.na(d)&is.na(e),name,NA),
       level_5 = ifelse(!is.na(a)&!is.na(b)&!is.na(c)&!is.na(d)&!is.na(e),name,NA),
       level = case_when(
-        is.na(b)&is.na(c)&is.na(d)&is.na(e) ~ "1",
-        !is.na(b)&is.na(c)&is.na(d)&is.na(e) ~ "2",
-        !is.na(b)&!is.na(c)&is.na(d)&is.na(e) ~ "3",
-        !is.na(b)&!is.na(c)&!is.na(d)&is.na(e) ~ "4",
-        !is.na(b)&!is.na(c)&!is.na(d)&!is.na(e) ~ "5"
-      )
-    ) %>%
-    fill(level_0:level_1) %>% group_by(level_1) %>% 
-    filter(!level %in% c("1") | n() == 1) %>%
+        !is.na(level_0)                                                                     ~ "0",
+        !is.na(level_1) & is.na(level_2) & is.na(level_3) & is.na(level_4) & is.na(level_5) ~ "1",
+        is.na(level_1) & !is.na(level_2) & is.na(level_3) & is.na(level_4) & is.na(level_5) ~ "2",
+        is.na(level_1) & is.na(level_2) & !is.na(level_3) & is.na(level_4) & is.na(level_5) ~ "3",
+        is.na(level_1) & is.na(level_2) & is.na(level_3) & !is.na(level_4) & is.na(level_5) ~ "4",
+        is.na(level_1) & is.na(level_2) & is.na(level_3) & is.na(level_4) & !is.na(level_5) ~ "5",
+        TRUE ~ NA_character_
+      ),
+      level = as.numeric(level)
+    ) %>% 
+    filter(!(str_detect(section,"--") & str_detect(lead(section),"--"))) %>%
+    fill(level_0) %>% group_by(level_0,level_1) %>% filter(level > 0 | n() > 1) %>% ungroup() %>%
+    fill(level_1) %>% group_by(level_0,level_1,level_2) %>% filter(level > 1 | n() > 1)
+  
+  %>%
+    fill(level_1) %>% group_by(level_2) %>% filter(level > 1 | n() == 1)
+    
+    fill(level_0) %>% filter(!is.na(level_1)|!is.na(level_2)|!is.na(level_3)|!is.na(level_4)|!is.na(level_5)) %>%
+    fill(level_1) %>% filter(!is.na(level_0)|!is.na(level_2)|!is.na(level_3)|!is.na(level_4)|!is.na(level_5)) %>%
+    fill(level_2) %>% filter(!is.na(level_0)|!is.na(level_1)|!is.na(level_3)|!is.na(level_4)|!is.na(level_5))
+  
+    
+  
     fill(level_2) %>%
     mutate(level_2 = if_else(is.na(level_2)&!is.na(level_3)|!is.na(level_4),level_1,level_2)) %>% 
     group_by(level_2) %>% filter(!level %in% c("2") | n() == 1) %>%
