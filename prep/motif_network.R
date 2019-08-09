@@ -22,7 +22,8 @@ ntwk_df <-
     df %>% ungroup() %>% select(from = level_3,to = level_4) %>% distinct(),
     df %>% ungroup() %>% select(from = level_4,to = level_5) %>% distinct()
   ) %>%
-  distinct() %>% ungroup() %>% 
+  # Need to tidy up in prep grouping, avoid distinct(to, .keep_all = T)
+  distinct(to, .keep_all = T) %>% ungroup() %>% 
   filter(!is.na(to) & !is.na(from))
   
 ntwk <- 

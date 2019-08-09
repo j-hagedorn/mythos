@@ -37,8 +37,8 @@ ntwk %>%
 
 ```{r}
 ntwk %>%
-  ggraph(layout = 'dendrogram', circular = FALSE) + 
-  geom_edge_link() +
+  ggraph(layout = 'dendrogram', circular = F) + 
+  geom_edge_diagonal() +
   theme_void()
 ```
 

@@ -59,18 +59,9 @@ get_motifs <- function(section_name,url){
       level = as.numeric(level)
     ) %>% 
     filter(!(str_detect(section,"--") & str_detect(lead(section),"--"))) %>%
-    fill(level_0) %>% group_by(level_0,level_1) %>% filter(level > 0 | n() > 1) %>% ungroup() %>%
-    fill(level_1) %>% group_by(level_0,level_1,level_2) %>% filter(level > 1 | n() > 1)
-  
-  %>%
-    fill(level_1) %>% group_by(level_2) %>% filter(level > 1 | n() == 1)
-    
-    fill(level_0) %>% filter(!is.na(level_1)|!is.na(level_2)|!is.na(level_3)|!is.na(level_4)|!is.na(level_5)) %>%
-    fill(level_1) %>% filter(!is.na(level_0)|!is.na(level_2)|!is.na(level_3)|!is.na(level_4)|!is.na(level_5)) %>%
-    fill(level_2) %>% filter(!is.na(level_0)|!is.na(level_1)|!is.na(level_3)|!is.na(level_4)|!is.na(level_5))
-  
-    
-  
+    fill(level_0) %>% group_by(level_0) %>%
+    fill(level_1) %>% group_by(level_1) %>% 
+    filter(!level %in% c("0") | n() == 1) %>%
     fill(level_2) %>%
     mutate(level_2 = if_else(is.na(level_2)&!is.na(level_3)|!is.na(level_4),level_1,level_2)) %>% 
     group_by(level_2) %>% filter(!level %in% c("2") | n() == 1) %>%
