@@ -3,14 +3,10 @@ library(tidyverse); library(tidygraph)
 library(visNetwork)
 
 # Clean up messiness
-df <- motifs %>% 
+df <- motifs %>%
+  filter(!duplicated(section))%>% 
   filter(name != "") %>%
   filter(!is.na(level_0))
-
-
-df %>%
-  filter(level_1 == level_2) %>%
-  View()
 
 ntwk_df <-
   bind_rows(
