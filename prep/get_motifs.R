@@ -64,7 +64,6 @@ get_motifs <- function(section_name,url){
         !is.na(level_4) ~ NA_character_,
         !is.na(a) & !is.na(b) & !is.na(c) & !is.na(d) & (!is.na(e) | d == "0") ~ section
       ),
-      #level_5 = ifelse(!is.na(a)&!is.na(b)&!is.na(c)&!is.na(d)&!is.na(e),section,NA),
       level = case_when(
         !is.na(level_0)                                                                     ~ "0",
         !is.na(level_1) & is.na(level_2) & is.na(level_3) & is.na(level_4) & is.na(level_5) ~ "1",
@@ -84,16 +83,15 @@ get_motifs <- function(section_name,url){
       | sum(!is.na(notes)) == 0 & !duplicated(section)
     ) %>%
     ungroup() %>%
-    mutate(
-      sort_0 = as.numeric(str_remove_all(a,"^[:alpha:]"))
-    ) %>%
+    # Manage fill of level 0, which originally goes by order of data presented rather than numerically
+    mutate(sort_0 = as.numeric(str_remove_all(a,"^[:alpha:]"))) %>%
     arrange(sort_0) %>%
     fill(level_0) %>% group_by(level_0) %>%
     fill(level_1) %>% group_by(level_1) %>% 
     fill(level_2) %>% group_by(level_2) %>%
     fill(level_3) %>% group_by(level_3) %>%
     fill(level_4) %>% group_by(level_4) %>%
-    fill(level_5) %>%
+    fill(level_5) %>% ungroup() %>%
     arrange(sort_0,b,c,d,e) %>%
     mutate(section_name = section_name) 
   
@@ -133,7 +131,7 @@ motifs <-
     motif_life,motif_religion,motif_traits,motif_humor,motif_misc
   ) %>%
   select(-a:-e) %>%
-  mutate_all(list(~str_trim)) %>%
+  mutate_all(list(~str_trim(.))) %>%
   select(section,section_name,name,notes,level,level_0:level_5)
 
 rm(list = c("motif_myth","motif_animal","motif_tabu","motif_magic","motif_dead","motif_marvels",
@@ -141,5 +139,5 @@ rm(list = c("motif_myth","motif_animal","motif_tabu","motif_magic","motif_dead",
             "motif_chance","motif_society","motif_rewards","motif_captive","motif_cruelty","motif_sex",
             "motif_life","motif_religion","motif_traits","motif_humor","motif_misc"))  
   
-feather::write_feather(motifs,"motifs.feather")
-write_csv(motifs,"motifs.csv")
+feather::write_feather(motifs,"data/motifs.feather")
+write_csv(motifs,"data/motifs.csv")
