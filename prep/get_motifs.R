@@ -24,6 +24,7 @@ get_motifs <- function(section_name,url){
       section = str_extract(value,"[^\\s]+"),
       value = str_remove(value,"[^\\s]+"),
       # Extract and remove brief section name (up to first period)
+      value = str_replace_all(value,"etc.","etc"),
       name = str_extract(value,"[^\\.]+"),
       name = str_replace_all(name,"\r?\n|\r"," "),
       notes = str_sub(value,start = str_locate(value,"\\.")[,1] + 1)
@@ -31,9 +32,19 @@ get_motifs <- function(section_name,url){
     select(section,name,notes) %>%
     mutate_all(.funs = list(~str_trim(.))) %>%
     mutate_all(.funs = list(~na_if(.,""))) %>%
-    filter(!section %in% c("Note:","DETAILED")) %>%
+    filter(!section %in% c("Note:","DETAILED")) %>% 
+    # Remove instances where section ID does not end with dot (notes and such)
+    filter(str_detect(section,"\\.$")) %>%
     # Remove final decimal/dot
     mutate(section = str_remove(section,"\\.$")) %>%
+    # If duplicated, remove row without notes
+    group_by(section) %>%
+    filter(
+      # If there's text in `notes`, keep that
+      (sum(!is.na(notes)) > 0 & !is.na(notes))
+      | sum(!is.na(notes)) == 0 & !duplicated(section)
+    ) %>%
+    ungroup() %>%
     separate(section, into = c("a","b","c","d","e"),sep = "\\.",remove = F) %>%
     filter(!is.na(name)) %>%
     # Remove title levels which are duplicated beneath
@@ -58,8 +69,11 @@ get_motifs <- function(section_name,url){
       ),
       level = as.numeric(level)
     ) %>% 
-    filter(!(str_detect(section,"--") & str_detect(lead(section),"--"))) %>%
-    fill(level_0) %>% group_by(level_0) %>%
+    filter(!(str_detect(section,"--") & str_detect(lead(section),"--"))) 
+  %>%
+    fill(level_0) 
+  
+  %>% group_by(level_0) %>%
     fill(level_1) %>% group_by(level_1) %>% 
     filter(!level %in% c("0") | n() == 1) %>%
     fill(level_2) %>%
