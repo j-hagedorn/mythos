@@ -27,7 +27,15 @@ ntwk <-
   as_tbl_graph(directed = T) %>% 
   activate(edges) %>% filter(!edge_is_multiple()) %>%
   activate(nodes) %>% 
+  left_join(
+    df %>% rename(description = name) %>%
+      select(section:level), 
+    by = c("name" = "section")
+  ) %>%
   mutate(
+    level = as.numeric(level) + 1,
+    level = if_else(is.na(level),0,level),
+    root = node_is_root(),
     center = node_is_center(),
     neighbors = centrality_degree()
   )
