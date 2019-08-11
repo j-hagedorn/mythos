@@ -3,42 +3,71 @@ title: "R Notebook"
 output: html_notebook
 ---
 
- 
-
 ```{r, load}
 library(tidyverse);library(tidygraph);library(ggraph)
 motifs <- feather::read_feather("data/motifs.feather")
 source("prep/motif_network.R")
 ```
 
-```{r}
-
-```
-
-
-```{r}
-df %>%
-  group_by(section_name,level_0,level_1,level_2) %>%
-  summarize(
-    n = n(),
-    nas = sum(is.na(name))
-  ) %>%
-  View()
-```
-
-
 
 ```{r} 
-ntwk %>%
-  activate(nodes) %>%
-  filter()
-  as_tibble() %>% View()
+ntwk %>% activate(nodes) %>% as_tibble() %>% View()
 ```
 
-```{r}
+
+# Trace a Concept in the Current Hierarchy
+
+## Where does a single term/phrase show up across the entire 'tree' of motifs?
+
+Given a particular term or phrase, can we show all nodes which match, as well as the parent nodes of these, branching back to the root?
+
+Options for display/exploration:
+
+- Use dendrogram of entire motif structure, and highlight the edges and nodes which match a given search (*Challenge: time to render whole shebang*)
+- Subset the graph dataframe and re-draw a new dendrogram with only the filtered nodes (*Challenge: How to keep parents -> root of selected nodes to keep entire tree/forest intact*)
+
+```{r, dpi = 320}
 ntwk %>%
+  activate(nodes) %>%
+  filter(str_detect(description,"God")) %>%
   ggraph(layout = 'dendrogram', circular = F) + 
   geom_edge_diagonal() +
+  geom_node_point(aes(colour = level)) +
   theme_void()
+
+# ggsave("sample.png", width=4, height=3, dpi = "retina")
 ```
+
+# Compare Traditions
+
+## Identify traditions
+
+*How to extract structured fields from* `notes` *field for each country tagged?*
+
+## Which motifs are common across multiple traditions?
+
+## Given a specific tradition, which others share the greatest number of motifs?
+
+# Uncover Themes
+
+## Clustering motifs to find archetypes
+
+How might we start at the most granular level and develop new categories other than Thompson's?
+
+Some options:
+
+- Topic models (LDA) based on `description` field (and perhaps `notes`)
+- String similarity metrics using `stringdist` package
+
+Issues to address:
+
+- How to create/identify clusters?
+- How to name them automatically/intuitively
+
+## Needed cleaning steps
+
+In order to identify similarities, it may help to:
+
+- Replace/expand to common synonyms
+- Use stem words (lemmatization)
 
