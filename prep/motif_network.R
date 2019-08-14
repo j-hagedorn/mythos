@@ -37,7 +37,11 @@ ntwk <-
     level = if_else(is.na(level),0,level),
     root = node_is_root(),
     center = node_is_center(),
-    neighbors = centrality_degree()
+    neighbors = centrality_degree(),
+    row = row_number()
   )
 
 rm(ntwk_df)  
+
+
+
