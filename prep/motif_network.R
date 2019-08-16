@@ -39,6 +39,12 @@ ntwk <-
     center = node_is_center(),
     neighbors = centrality_degree(),
     row = row_number()
+  ) %>%
+  activate(edges) %>%
+  left_join(
+    df %>% mutate(row = row_number()) %>% 
+      select(row,edge_section_name = section_name),
+    by = c("from" = "row")
   )
 
 rm(ntwk_df)  
