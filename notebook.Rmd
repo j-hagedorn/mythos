@@ -8,6 +8,7 @@ output:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(tidyverse);library(tidygraph);library(tidytext);library(ggraph)
+library(paletteer)
 knitr::opts_chunk$set(
   fig.width=6,fig.asp = 0.618,dpi=300,echo=FALSE,message=FALSE,warning=FALSE
 )
@@ -41,8 +42,6 @@ Can we display related search output of similar terms/concepts for comparison?  
 
 Options for display/exploration:
 
-- Use dendrogram of entire motif structure (as either a transparent underlay or a dnesity cloud), and highlight the edges and nodes which match a given search (*Challenge: time to render whole shebang*)
-
 
 - Subset the graph dataframe and re-draw a new dendrogram with only the filtered nodes
 
@@ -52,26 +51,45 @@ In order to identify the portion of the overall tree which includes a set of ter
 source('funs/trace_to_root.R')
 ```
 
+```{r subset_trace}
+viz_df <-
+  ntwk %>% activate(nodes) %>% 
+  filter(row %in% trace_to_root("Love"))
+```
+
 
 ```{r}
-ntwk %>%
-  activate(nodes) %>% 
-  filter(row %in% trace_to_root("Seal")) %>%
+viz_df %>%
+  ungroup() %>%
   ggraph(layout = 'dendrogram', circular = T) + 
   geom_edge_diagonal(alpha = 0.25) +
-  geom_node_point(aes(colour = level)) +
+  geom_node_point(
+    aes(
+      colour = section_name,
+      filter = leaf,
+      size= level * 0.5, 
+      alpha=0.2
+    )
+  ) +
   geom_node_text(
     aes(
-      label = ifelse(
-        level >= max(level) - 1, 
-        str_trunc(as.character(description),30,"right"), 
-        NA_character_
-      )
-    ),
-    repel = T,size = 2,alpha = 0.5
+      x = x*1.15, y=y*1.15, 
+      filter = leaf, 
+      label = str_trunc(as.character(description),20,"right"), 
+      angle = -((-node_angle(x, y)+90)%%180)+90, 
+      hjust='outward', 
+      colour=section_name
+    ), 
+    size=2.5, alpha=1
   ) +
+  # scale_color_paletteer_d(viridis, inferno) +
   coord_fixed() +
-  theme_void()
+  theme_void() +
+  theme(
+    legend.position="none",
+    plot.margin=unit(c(0,0,0,0),"cm")
+  ) +
+  expand_limits(x = c(-2, 2), y = c(-2, 2))
 
 ```
 
@@ -113,10 +131,28 @@ traditions <-
     )
   )
 
-tst %>%
-  ggplot(aes(x = fct_reorder(word,n), y = n)) +
-  geom_bar(stat = "identity")
+```
 
+
+```{r fig.height=8}
+traditions %>%
+  filter(n >= 100) %>%
+  ggplot(aes(x=n, y=fct_reorder(word,n,.desc=T))) +
+  geom_segment(
+    aes(
+      x = 0, y = fct_reorder(word,n,.desc=T),
+      xend = n, yend = fct_reorder(word,n,.desc=T)
+    ),
+    color = "gray50"
+  ) +
+  geom_point() +
+  labs(
+    x = "Number of tags", y = "Tradition", 
+    title = "Motifs from various traditions",
+    subtitle = "showing number of instances mentioned (where n > 100)",
+    caption = "from the Thompson Motif Index"
+  ) +
+  theme_minimal()
 ```
 
 
