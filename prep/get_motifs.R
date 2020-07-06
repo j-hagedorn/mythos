@@ -24,6 +24,7 @@ get_motifs <- function(section_name,url){
       section = str_extract(value,"[^\\s]+"),
       value = str_remove(value,"[^\\s]+"),
       # Extract and remove brief section name (up to first period)
+      value = str_replace_all(value,"etc.","etc"),
       name = str_extract(value,"[^\\.]+"),
       name = str_replace_all(name,"\r?\n|\r"," "),
       notes = str_sub(value,start = str_locate(value,"\\.")[,1] + 1)
@@ -31,22 +32,38 @@ get_motifs <- function(section_name,url){
     select(section,name,notes) %>%
     mutate_all(.funs = list(~str_trim(.))) %>%
     mutate_all(.funs = list(~na_if(.,""))) %>%
-    filter(!section %in% c("Note:","DETAILED")) %>%
+    filter(!section %in% c("Note:","DETAILED")) %>% 
+    # Remove instances where section ID does not end with dot (notes and such)
+    filter(str_detect(section,"\\.$")) %>%
     # Remove final decimal/dot
-    mutate(section = str_remove(section,"\\.$")) %>%
+    mutate(section = str_remove(section,"\\.$"))  %>%
     separate(section, into = c("a","b","c","d","e"),sep = "\\.",remove = F) %>%
     filter(!is.na(name)) %>%
     # Remove title levels which are duplicated beneath
-    filter(!str_detect(name,"†")) %>%
+    filter(!str_detect(section,".†")) %>%
     filter(str_length(section) > 1) %>% 
+    filter(!(str_detect(section,"--") & str_detect(lead(section),"--"))) %>% 
     mutate(
       name = str_to_title(name),
-      level_0 = ifelse(str_detect(section,pattern = "--"),name,NA),
-      level_1 = ifelse(!is.na(a)&is.na(b)&is.na(c)&is.na(d)&is.na(e),name,NA),
-      level_2 = ifelse(!is.na(a)&!is.na(b)&is.na(c)&is.na(d)&is.na(e)&is.na(level_0),name,NA),
-      level_3 = ifelse(!is.na(a)&!is.na(b)&!is.na(c)&is.na(d)&is.na(e),name,NA),
-      level_4 = ifelse(!is.na(a)&!is.na(b)&!is.na(c)&!is.na(d)&is.na(e),name,NA),
-      level_5 = ifelse(!is.na(a)&!is.na(b)&!is.na(c)&!is.na(d)&!is.na(e),name,NA),
+      level_0 = ifelse(str_detect(section,pattern = "--"),section,NA),
+      level_1 = ifelse(
+        !is.na(a) & is.na(b) & is.na(c) & is.na(d) & is.na(e),section,NA
+      ),
+      level_2 = ifelse(
+        (!is.na(a) & is.na(level_0)) & !is.na(b) & (is.na(c) | b == "0") & is.na(d) & is.na(e),section,NA
+      ),
+      level_3 = case_when(
+        !is.na(level_2) ~ NA_character_,
+        !is.na(a) & !is.na(b) & !is.na(c) & (is.na(d) | c == "0" | b == "0") & is.na(e) ~ section
+      ),
+      level_4 = case_when(
+        !is.na(level_3) & is.na(e) ~ NA_character_,
+        !is.na(a) & !is.na(b) & !is.na(c) & (!is.na(d) | c == "0") & (is.na(e) | d == "0" | c == "0" | b == "0") ~ section
+      ),
+      level_5 = case_when(
+        !is.na(level_4) ~ NA_character_,
+        !is.na(a) & !is.na(b) & !is.na(c) & !is.na(d) & (!is.na(e) | d == "0") ~ section
+      ),
       level = case_when(
         !is.na(level_0)                                                                     ~ "0",
         !is.na(level_1) & is.na(level_2) & is.na(level_3) & is.na(level_4) & is.na(level_5) ~ "1",
@@ -57,21 +74,26 @@ get_motifs <- function(section_name,url){
         TRUE ~ NA_character_
       ),
       level = as.numeric(level)
-    ) %>% 
-    filter(!(str_detect(section,"--") & str_detect(lead(section),"--"))) %>%
+    ) %>%
+    # If duplicated, remove row without notes
+    group_by(section) %>%
+    filter(
+      # If there's text in `notes`, keep that
+      (sum(!is.na(notes)) > 0 & !is.na(notes))
+      | sum(!is.na(notes)) == 0 & !duplicated(section)
+    ) %>%
+    ungroup() %>%
+    # Manage fill of level 0, which originally goes by order of data presented rather than numerically
+    mutate(sort_0 = as.numeric(str_remove_all(a,"^[:alpha:]"))) %>%
+    arrange(sort_0) %>%
     fill(level_0) %>% group_by(level_0) %>%
     fill(level_1) %>% group_by(level_1) %>% 
-    filter(!level %in% c("0") | n() == 1) %>%
-    fill(level_2) %>%
-    mutate(level_2 = if_else(is.na(level_2)&!is.na(level_3)|!is.na(level_4),level_1,level_2)) %>% 
-    group_by(level_2) %>% filter(!level %in% c("2") | n() == 1) %>%
-    fill(level_3) %>%
-    mutate(level_3 = if_else(is.na(level_3)&!is.na(level_4),level_2,level_3)) %>% 
-    group_by(level_3) %>% filter(!level %in% c("3") | n() == 1) %>%
-    fill(level_4) %>%
-    mutate(level_4 = if_else(is.na(level_4)&!is.na(level_5),level_3,level_4)) %>% 
-    group_by(level_4) %>% filter(!level %in% c("4") | n() == 1) %>%
-    mutate(section_name = section_name)
+    fill(level_2) %>% group_by(level_2) %>%
+    fill(level_3) %>% group_by(level_3) %>%
+    fill(level_4) %>% group_by(level_4) %>%
+    fill(level_5) %>% ungroup() %>%
+    arrange(sort_0,b,c,d,e) %>%
+    mutate(section_name = section_name) 
   
   return(df)
   
@@ -118,5 +140,5 @@ rm(list = c("motif_myth","motif_animal","motif_tabu","motif_magic","motif_dead",
             "motif_chance","motif_society","motif_rewards","motif_captive","motif_cruelty","motif_sex",
             "motif_life","motif_religion","motif_traits","motif_humor","motif_misc"))  
   
-feather::write_feather(motifs,"motifs.feather")
-write_csv(motifs,"motifs.csv")
+feather::write_feather(motifs,"data/motifs.feather")
+write_csv(motifs,"data/motifs.csv")

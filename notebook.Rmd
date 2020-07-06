@@ -1,44 +1,193 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  html_document:
+    highlight: haddock
+    theme: paper
 ---
 
- 
-
-```{r, load}
-library(tidyverse);library(tidygraph);library(ggraph)
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse);library(tidygraph);library(tidytext);library(ggraph)
+library(paletteer)
+knitr::opts_chunk$set(
+  fig.width=6,fig.asp = 0.618,dpi=300,echo=FALSE,message=FALSE,warning=FALSE
+)
 motifs <- feather::read_feather("data/motifs.feather")
 source("prep/motif_network.R")
 ```
 
-```{r}
-
-```
-
-
-```{r}
-df %>%
-  group_by(section_name,level_0,level_1,level_2) %>%
-  summarize(
-    n = n(),
-    nas = sum(is.na(name))
-  ) %>%
-  View()
-```
-
-
-
 ```{r} 
-ntwk %>%
-  activate(nodes) %>%
-  filter()
-  as_tibble() %>% View()
+# ntwk %>% activate(nodes) %>% as_tibble() %>% View()
 ```
 
+# Trace a Concept in the Current Hierarchy
+
+## Where does a single term/phrase show up across the entire 'tree' of motifs?
+
+Given a particular term or phrase, can we show all nodes which match, as well as the parent nodes of these, branching back to the root?
+
+How might this work with more complex constellations of terms, like `rise(s) from dead|resurrect|back to life`, or `goddess|serpent` related to Marija Gimbutas' work, or `transfigur|transform|becomes|turns into`?
+
 ```{r}
-ntwk %>%
-  ggraph(layout = 'dendrogram', circular = F) + 
-  geom_edge_diagonal() +
-  theme_void()
+
 ```
+
+
+Can we display related search output of similar terms/concepts for comparison?  For instance, `resurrection` and `reincarnation`?
+
+```{r}
+
+```
+
+
+Options for display/exploration:
+
+
+- Subset the graph dataframe and re-draw a new dendrogram with only the filtered nodes
+
+In order to identify the portion of the overall tree which includes a set of terms, we need to identify not only the nodes which contain those search terms but also their parent nodes, all the way back to the root.^[This is done via the `trace_to_root()` convenience function defined here.]  This allows us to keep the main trunk of the tree intact and connect the disparate items that a search turns up.
+
+```{r}
+source('funs/trace_to_root.R')
+```
+
+```{r subset_trace}
+viz_df <-
+  ntwk %>% activate(nodes) %>% 
+  filter(row %in% trace_to_root("Love"))
+```
+
+
+```{r}
+viz_df %>%
+  ungroup() %>%
+  ggraph(layout = 'dendrogram', circular = T) + 
+  geom_edge_diagonal(alpha = 0.25) +
+  geom_node_point(
+    aes(
+      colour = section_name,
+      filter = leaf,
+      size= level * 0.5, 
+      alpha=0.2
+    )
+  ) +
+  geom_node_text(
+    aes(
+      x = x*1.15, y=y*1.15, 
+      filter = leaf, 
+      label = str_trunc(as.character(description),20,"right"), 
+      angle = -((-node_angle(x, y)+90)%%180)+90, 
+      hjust='outward', 
+      colour=section_name
+    ), 
+    size=2.5, alpha=1
+  ) +
+  # scale_color_paletteer_d(viridis, inferno) +
+  coord_fixed() +
+  theme_void() +
+  theme(
+    legend.position="none",
+    plot.margin=unit(c(0,0,0,0),"cm")
+  ) +
+  expand_limits(x = c(-2, 2), y = c(-2, 2))
+
+```
+
+# Compare Traditions
+
+## Identify traditions
+
+*How to extract structured fields from* `notes` *field for each country tagged?*
+
+Identify all traditions referenced in `note` field for tagging
+Make logical variables detecting presence of tradition in notes field (potentially using `purrr::map_`)
+
+```{r}
+traditions <-
+  df %>%
+  unnest_tokens(word, notes) %>%
+  group_by(word) %>% summarize(n = n()) %>%
+  filter(
+    word %in% c(
+      "india","hindu","indian","american",
+      "irish","celtic","ireland",
+      "arab","assyrian","turkish",
+      "jewish","hebrew","palestine","icelandic","icel","iceland","norse",
+      "italian","sicilian","africa","african","zulu","angola","rhodesia","cameroon","congo","nigeria","egypt","egyptian","yoruba","swahili","madagascar","togo","masai","surinam","bantu","liberia","senegambia",
+      "chinese","spanish","panama","columbia","ecuador",
+      "u.s","missouri","california","calif","georgia","zuñi","ojibwa","cherokee","blackfoot","apache","pueblo","cheyenne","iroquois","mexican","alaska","dakota","arapaho","choctaw","penobscot","hiawatha","tarahumare",
+      "korean","indies","nassau","zanzibar",
+      "indonesia","indonesian","fiji","maori","samoa","oceanic","oceania","melanesia","melanesian","polynesian","polynesia","micronesia","micronesian","honolulu","hawaiian","sumatra","malay","philippines","java","papuan","raratonga",
+      "canadian","canada","estonian","esthonian","swedish","scotch","scottish","britain","british","prussian",
+      "england","greek","lithuanian","latvian","rumanian","romania","slavic","eskimo","kodiak","austrian",
+      "french","france","danish","russian","bulgarian","slovenian","tahiti","tahltan","rarotonga","jamaica","flemish","burmese","circassian",
+      "siberian","swiss","scotland","persian","negro","brazil","peru","argentina","aztec","inca","amazon","hebrides","creole","haitian",
+      "finnish","norwegian","hawaii","japanese","buddhist","german",
+      "greenland","english","breton","hungarian","korea",
+      "wales","welsh","philippine","babylonian","armenian","australian","australia","araucanian","antigua","cyprus",
+      ###
+      "ikeda","malalasekera","fox","eddic","fang","guinea",
+      "nasreddin","anesaki","easter","cook","verde","bering","labrador","wakweli","jijena","crow","snorra","marshall","zealand","nederlandsche","nederlandsch","tlingit","ashanti","teton","yagua","sherente","tehuelche","tenetehara","berbères"
+    )
+  )
+
+```
+
+
+```{r fig.height=8}
+traditions %>%
+  filter(n >= 100) %>%
+  ggplot(aes(x=n, y=fct_reorder(word,n,.desc=T))) +
+  geom_segment(
+    aes(
+      x = 0, y = fct_reorder(word,n,.desc=T),
+      xend = n, yend = fct_reorder(word,n,.desc=T)
+    ),
+    color = "gray50"
+  ) +
+  geom_point() +
+  labs(
+    x = "Number of tags", y = "Tradition", 
+    title = "Motifs from various traditions",
+    subtitle = "showing number of instances mentioned (where n > 100)",
+    caption = "from the Thompson Motif Index"
+  ) +
+  theme_minimal()
+```
+
+
+## Which motifs are common across multiple traditions?
+
+Visualize relationships across traditions using hierarchical edge bundling diagram (i.e. `geom_conn_bundle()`)
+
+```{r}
+
+```
+
+Visualize country coverage using coordinates of central city from a given civilization (*and radius based on extent of historical scope?*)
+
+## Given a specific tradition, which others share the greatest number of motifs?
+
+# Uncover Themes
+
+## Clustering motifs to find archetypes
+
+How might we start at the most granular level and develop new categories other than Thompson's?
+
+Some options:
+
+- Topic models (LDA) based on `description` field (and perhaps `notes`)
+- String similarity metrics using `stringdist` package
+
+Issues to address:
+
+- How to create/identify clusters?
+- How to name them automatically/intuitively
+
+## Needed cleaning steps
+
+In order to identify similarities, it may help to:
+
+- Replace/expand to common synonyms
+- Use stem words (lemmatization)
 

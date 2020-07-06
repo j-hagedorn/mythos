@@ -3,14 +3,10 @@ library(tidyverse); library(tidygraph)
 library(visNetwork)
 
 # Clean up messiness
-df <- motifs %>% 
+df <- motifs %>%
+  filter(!duplicated(section))%>% 
   filter(name != "") %>%
   filter(!is.na(level_0))
-
-
-df %>%
-  filter(level_1 == level_2) %>%
-  View()
 
 ntwk_df <-
   bind_rows(
@@ -31,9 +27,27 @@ ntwk <-
   as_tbl_graph(directed = T) %>% 
   activate(edges) %>% filter(!edge_is_multiple()) %>%
   activate(nodes) %>% 
+  left_join(
+    df %>% rename(description = name) %>%
+      select(section:level), 
+    by = c("name" = "section")
+  ) %>%
   mutate(
+    level = as.numeric(level) + 1,
+    level = if_else(is.na(level),0,level),
+    root = node_is_root(),
     center = node_is_center(),
-    neighbors = centrality_degree()
+    neighbors = centrality_degree(),
+    row = row_number()
+  ) %>%
+  activate(edges) %>%
+  left_join(
+    df %>% mutate(row = row_number()) %>% 
+      select(row,edge_section_name = section_name),
+    by = c("from" = "row")
   )
 
 rm(ntwk_df)  
+
+
+
