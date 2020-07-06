@@ -109,7 +109,8 @@ motifs <-
     motif_life,motif_religion,motif_traits,motif_humor,motif_misc
   ) %>%
   select(-a:-e) %>%
-  mutate_all(list(~str_trim)) %>%
+  ungroup() %>%
+  mutate_all(list(~str_trim(.))) %>%
   select(section,section_name,name,notes,level,level_0:level_5)
 
 rm(list = c("motif_myth","motif_animal","motif_tabu","motif_magic","motif_dead","motif_marvels",
