@@ -1,17 +1,15 @@
 
 library(tidyverse); library(tidygraph)
-library(visNetwork)
 
 # Clean up messiness
-df <- motifs %>%
-  filter(!duplicated(section))%>% 
-  filter(name != "") %>%
-  filter(!is.na(level_0))
+df <- motifs %>% filter(!duplicated(id)) 
+
+chapter_df <- df %>% select(chapter_id,motif_name = chapter_name) %>% distinct()
 
 ntwk_df <-
   bind_rows(
-    tibble(from = "Root", to = unique(df$section_name)),
-    df %>% ungroup() %>% select(from = section_name,to = level_0) %>% distinct(),
+    tibble(from = "Root", to = unique(df$chapter_id)),
+    df %>% ungroup() %>% select(from = chapter_id,to = level_0) %>% distinct(),
     df %>% ungroup() %>% select(from = level_0,to = level_1) %>% distinct(),
     df %>% ungroup() %>% select(from = level_1,to = level_2) %>% distinct(),
     df %>% ungroup() %>% select(from = level_2,to = level_3) %>% distinct(),
@@ -27,11 +25,12 @@ ntwk <-
   as_tbl_graph(directed = T) %>% 
   activate(edges) %>% filter(!edge_is_multiple()) %>%
   activate(nodes) %>% 
-  left_join(
-    df %>% rename(description = name) %>%
-      select(section:level), 
-    by = c("name" = "section")
-  ) %>%
+  # Join chapters
+  left_join(chapter_df, by = c("name" = "chapter_id")) %>%
+  # Join rest of motifs
+  left_join(df %>% select(id,motif_name,notes,level), by = c("name" = "id")) %>%
+  mutate(motif_name = if_else(is.na(motif_name.x),motif_name.y,motif_name.x)) %>%
+  select(name,motif_name,notes,level) %>%
   mutate(
     level = as.numeric(level) + 1,
     level = if_else(is.na(level),0,level),
@@ -43,11 +42,11 @@ ntwk <-
   activate(edges) %>%
   left_join(
     df %>% mutate(row = row_number()) %>% 
-      select(row,edge_section_name = section_name),
+      select(row,edge_section = id),
     by = c("from" = "row")
   )
 
-rm(ntwk_df)  
+rm(ntwk_df); rm(chapter_df); rm(df)
 
 
 
