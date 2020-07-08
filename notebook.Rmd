@@ -7,7 +7,7 @@ output:
 ---
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-library(tidyverse);library(tidygraph);library(tidytext);library(ggraph)
+library(tidyverse);library(tidygraph);library(tidytext);library(ggraph);library(visNetwork)
 library(paletteer)
 knitr::opts_chunk$set(
   fig.width=6,fig.asp = 0.618,dpi=300,echo=FALSE,message=FALSE,warning=FALSE
@@ -17,7 +17,7 @@ source("prep/motif_network.R")
 ```
 
 ```{r} 
-# ntwk %>% activate(nodes) %>% as_tibble() %>% View()
+ntwk %>% activate(nodes) %>% as_tibble() %>% View()
 ```
 
 # Trace a Concept in the Current Hierarchy
@@ -54,7 +54,9 @@ source('funs/trace_to_root.R')
 ```{r subset_trace}
 viz_df <-
   ntwk %>% activate(nodes) %>% 
-  filter(row %in% trace_to_root("Love"))
+  filter(row %in% trace_to_root("blood"))
+
+viz_df %>% activate(nodes) %>% as_tibble %>% View()
 ```
 
 
@@ -65,7 +67,7 @@ viz_df %>%
   geom_edge_diagonal(alpha = 0.25) +
   geom_node_point(
     aes(
-      colour = section_name,
+      colour = name,
       filter = leaf,
       size= level * 0.5, 
       alpha=0.2
@@ -75,14 +77,14 @@ viz_df %>%
     aes(
       x = x*1.15, y=y*1.15, 
       filter = leaf, 
-      label = str_trunc(as.character(description),20,"right"), 
+      label = str_trunc(as.character(motif_name),20,"right"), 
       angle = -((-node_angle(x, y)+90)%%180)+90, 
-      hjust='outward', 
-      colour=section_name
+      hjust ='outward', 
+      colour = name
     ), 
     size=2.5, alpha=1
   ) +
-  # scale_color_paletteer_d(viridis, inferno) +
+  # scale_fill_paletteer_d(viridis, inferno) +
   coord_fixed() +
   theme_void() +
   theme(
