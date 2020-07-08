@@ -4,7 +4,7 @@ trace_to_root <- function(search_term){
   
   take_1 <- ntwk %>%
     activate(nodes) %>% as_tibble() %>%
-    filter(str_detect(description,search_term)) %>%
+    filter(str_detect(motif_name,regex(search_term,ignore_case = T))) %>%
     .$row
   
   take_2 <- 
@@ -33,5 +33,5 @@ trace_to_root <- function(search_term){
   
 }
 
-
+# search_term = "blood"
 # search <- trace_to_root("Shaman")
