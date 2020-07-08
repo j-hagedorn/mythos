@@ -3,5 +3,8 @@
 .RData
 .Ruserdata
 
+*.png
+*.html
+*nb.html
 *.feather
 *.csv
