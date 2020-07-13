@@ -17,7 +17,11 @@ source("prep/motif_network.R")
 ```
 
 ```{r} 
-ntwk %>% activate(nodes) %>% as_tibble() %>% View()
+search_term <- regex("blood",ignore_case = T)
+
+ntwk %>% activate(nodes) %>% as_tibble() %>% 
+  filter_at(vars(motif_name,notes),any_vars(str_detect(.,search_term))) %>%
+  View()
 ```
 
 # Trace a Concept in the Current Hierarchy
