@@ -2,6 +2,8 @@
 
 library(tidyverse); library(rvest)
 
+# Full online work: https://en.m.wikisource.org/wiki/Motif-Index_of_Folk-Literature
+
 # url <- "https://sites.ualberta.ca/~urban/Projects/English/Content/a.htm"
 # section_name <- "Myths"
 
