@@ -1,0 +1,219 @@
+---
+title: "Blood"
+output: html_document
+---
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse);library(tidygraph);library(tidytext);library(ggraph);library(visNetwork);library(paletteer)
+
+knitr::opts_chunk$set(
+  fig.width=6,fig.asp = 0.618,dpi=300,echo=FALSE,message=FALSE,warning=FALSE
+)
+
+motifs <- feather::read_feather("../data/motifs.feather")
+source("../prep/motif_network.R")
+```
+
+```{r} 
+search_term <- regex("blood|bleed",ignore_case = T)
+
+ntwk %>% activate(nodes) %>% as_tibble() %>% 
+  filter_at(vars(motif_name,notes),any_vars(str_detect(.,search_term))) %>%
+  View()
+```
+
+
+```{r df}
+
+blood <-
+  ntwk %>% activate(nodes) %>% as_tibble() %>% 
+  filter_at(vars(motif_name,notes),any_vars(str_detect(.,search_term))) %>%
+  # combine text fields
+  mutate(text = paste0(motif_name," ",if_else(is.na(notes),"",notes))) 
+
+```
+
+```{r lda, include=FALSE}
+
+blood_dtm <-
+  blood %>%
+  select(name,text) %>%
+  unnest_tokens(word, text) %>%
+  mutate(word = str_remove_all(word,"[[:punct:]]")) %>%
+  mutate(word = str_remove_all(word,"[[:digit:]]")) %>%
+  anti_join(stop_words) %>%
+  filter(str_length(word) > 1) %>%
+  count(name, word, sort = TRUE) %>%
+  cast_dtm(name, word, n)
+
+library(topicmodels)
+blood_lda <- LDA(blood_dtm, k = 15, control = list(seed = 123))
+
+# tst <- tidy(blood_lda) %>%
+#   group_by(topic) %>%
+#   top_n(10, beta) %>%
+#   ungroup() %>%
+#   arrange(topic, -beta)
+
+# Get best topic for each document
+doc_topic <- 
+  tidy(blood_lda, matrix = "gamma") %>%
+  group_by(document) %>%
+  top_n(1, gamma)
+
+x <- blood %>% left_join(doc_topic, by = c("name" = "document"))
+
+# tst <- augment(blood_lda, data = blood_dtm)
+# library(tidymodels);library(textrecipes)
+# 
+# blood_recipe <-
+#   recipe(~ text, data = blood %>% select(name,text)) %>%
+#   step_tokenize(text, token = "words") %>% 
+#   step_stopwords(text) 
+#   
+# tst <- blood_recipe %>% prep()
+```
+
+```{r coding}
+
+b <- list()
+
+b$spirit  <- "soul.*in the blood|ichor|god |gods |crucified savior"
+b$create  <- "create|made from|originate from|man from|made of|origin of |all living things from"
+b$element <- "flood|fire in hell|produces fountain|lake of blood|heavens bleed|bleeding rock|bleeding tree|tree bleeds|earth comes out bloody|river of blood|rivers of blood|sun|moon|shower of blood|dew of blood|heaven"
+b$seed    <- "plant from|tree from|trees spring|birth from blood|fertile|from blood-clot|conception from|insects from|snake from blood|mandrake from "
+b$revive  <- "vitalizes|rejuvenates|revives"
+b$heal    <- "resuscitat|cure|restores sight|remedy|healed|healing"
+b$cleanse <- "bath of blood|bath in blood|bathing in blood|blood-bath|blood bath"
+b$pollute <- "venomous|poisonous|disease caused|defiled by|befoul|pollute|tabu"
+b$morph <- "transformation|changes to blood|change to blood|turns to blood|blood turns|impersonate|original form|becomes blood|transformed"
+b$techne  <- "crucifix bleed|altar bleeds|statue bleeds|bleeding knife|image bleeds|shrine bleeds|object bleeds|image of christ bleeds|stone lion|(?<=bleeding\\s)\\w+"
+b$reveal  <- "disenchantment|indicates guilt|life token|to indicate|bubbles at place of murder|sign of disobedience|from murderer's|when murderer touches|treasure found|foretell|pregnant|test of"
+b$power   <- "power|invulnerab|strengthen|magic|protects"
+b$covenant <- "bargain|covenant|blood-brother|betrothal|signed in blood|sworn|blood brother|sealed in blood"
+b$aphrodisiac <- "love-philtre|love philtre"
+b$excrete <- "tears of blood|tears \\( of blood|sweats blood|each hair|sweat blood"
+b$drink <- "drinks blood|sucks blood|drinks all|suck |tasted|lick"
+b$language <- "blood speaks|teaches animal languages|speaking blood|secret escapes|restores speech"
+b$sacrifice <- "sacrific"
+
+blood_theme <-
+  blood %>%
+  mutate(
+    theme = case_when(
+      str_detect(motif_name,regex(b$spirit, ignore_case = T))  ~ "spirit",
+      str_detect(motif_name,regex(b$create, ignore_case = T))  ~ "create",
+      str_detect(motif_name,regex(b$element, ignore_case = T)) ~ "element",
+      str_detect(motif_name,regex(b$seed, ignore_case = T))    ~ "seed",
+      str_detect(motif_name,regex(b$revive, ignore_case = T))  ~ "revive",
+      str_detect(motif_name,regex(b$heal, ignore_case = T))    ~ "heal",
+      str_detect(motif_name,regex(b$cleanse, ignore_case = T)) ~ "cleanse",
+      str_detect(motif_name,regex(b$pollute, ignore_case = T)) ~ "pollute",
+      str_detect(motif_name,regex(b$morph, ignore_case = T))   ~ "morph",
+      str_detect(motif_name,regex(b$techne, ignore_case = T))  ~ "techne",
+      str_detect(motif_name,regex(b$reveal, ignore_case = T))  ~ "reveal",
+      str_detect(motif_name,regex(b$power, ignore_case = T))   ~ "power",
+      str_detect(motif_name,regex(b$covenant, ignore_case = T)) ~ "covenant",
+      str_detect(motif_name,regex(b$aphrodisiac, ignore_case = T)) ~ "aphrodisiac",
+      str_detect(motif_name,regex(b$excrete, ignore_case = T)) ~ "excrete",
+      str_detect(motif_name,regex(b$drink, ignore_case = T))   ~ "drink",
+      str_detect(motif_name,regex(b$language, ignore_case = T)) ~ "language",
+      str_detect(motif_name,regex(b$sacrifice, ignore_case = T)) ~ "sacrifice",
+      TRUE ~ NA_character_
+    ),
+    group = recode(
+      theme,
+      spirit      = "foundation",
+      create      = "foundation",
+      element     = "foundation",
+      language    = "foundation",
+      power       = "foundation",
+      covenant    = "foundation",
+      seed        = "life-giving",
+      revive      = "life-giving",
+      aphrodisiac = "life-giving",
+      morph       = "transform",
+      heal        = "reordering",
+      sacrifice   = "reordering",
+      cleanse     = "reordering",
+      reveal      = "revelation",
+      techne      = "revelation",
+      excrete     = "revelation",
+      pollute     = "pollution"
+    )
+  ) %>%
+  filter(!is.na(theme))
+
+# blood_theme %>% filter(is.na(theme)) %>% View()
+
+```
+
+
+```{r}
+blood_ntwk <-
+  bind_rows(
+    tibble(from = "Root", to = unique(blood_theme$group)),
+    blood_theme %>% ungroup() %>% select(from = group,to = theme) %>% distinct(),
+    blood_theme %>% ungroup() %>% select(from = theme,to = name) %>% distinct()
+  ) %>%
+  # Need to tidy up in prep grouping, avoid distinct(to, .keep_all = T)
+  distinct(to, .keep_all = T) %>% ungroup() %>% 
+  filter(!is.na(to) & !is.na(from)) %>% 
+  as_tbl_graph(directed = T) %>% 
+  activate(edges) %>% filter(!edge_is_multiple()) %>%
+  activate(nodes) %>% 
+  # Join chapters
+  left_join(
+    blood_theme, by = "name"
+  )
+```
+
+
+```{r}
+
+blood_ntwk %>%
+  ungroup() %>%
+  ggraph(layout = 'dendrogram', circular = T) + 
+  geom_edge_diagonal(alpha = 0.25) +
+  geom_node_point(
+    aes(
+      colour = group,
+      filter = leaf,
+      size= level * 0.5, 
+      alpha=0.2
+    )
+  ) +
+  geom_node_text(
+    aes(
+      x = x*1.15, y=y*1.15, 
+      filter = leaf, 
+      label = str_trunc(as.character(motif_name),20,"right"), 
+      angle = -((-node_angle(x, y)+90)%%180)+90, 
+      hjust ='outward', 
+      colour = theme
+    ), 
+    size=2.5, alpha=1
+  ) +
+  # scale_fill_paletteer_d(viridis, inferno) +
+  coord_fixed() +
+  scale_color_viridis_d(option = "B") +
+  theme_void() +
+  theme(
+    legend.position="none",
+    plot.margin=unit(c(0,0,0,0),"cm")
+  ) +
+  expand_limits(x = c(-2, 2), y = c(-2, 2))
+
+```
+
+
+```{r}
+library(visNetwork)
+
+blood_ntwk %>% 
+  tidygraph::as.igraph() %>%
+  visNetwork::visIgraph() %>%
+  visOptions(selectedBy = "group",collapse = T) %>%
+  visEvents(type = "on", doubleClick = "networkOpenCluster") 
+```
+
