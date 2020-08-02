@@ -66,12 +66,19 @@ x <- blood %>% left_join(doc_topic, by = c("name" = "document"))
 # tst <- augment(blood_lda, data = blood_dtm)
 # library(tidymodels);library(textrecipes)
 # 
-# blood_recipe <-
-#   recipe(~ text, data = blood %>% select(name,text)) %>%
-#   step_tokenize(text, token = "words") %>% 
-#   step_stopwords(text) 
+motif_recipe <-
+  recipe(
+    ~ text, 
+    data = ntwk %>% activate(nodes) %>% 
+      as_tibble() %>% select(name,text = motif_name)
+  ) %>%
+  step_tokenize(text, token = "words", engine = "spacyr") %>%
+  step_stopwords(text) %>%
+  step_lemma(text)
 #   
-# tst <- blood_recipe %>% prep()
+motif_prep <- motif_recipe %>% prep()
+
+tst <- motif_prep %>% bake(ntwk %>% activate(nodes) %>% as_tibble() %>% select(text = motif_name))
 ```
 
 ```{r coding}
@@ -171,6 +178,7 @@ blood_ntwk <-
 
 ```{r}
 
+
 blood_ntwk %>%
   ungroup() %>%
   ggraph(layout = 'dendrogram', circular = T) + 
@@ -179,30 +187,22 @@ blood_ntwk %>%
     aes(
       colour = group,
       filter = leaf,
-      size= level * 0.5, 
-      alpha=0.2
+      size = level * 0.05, 
+      alpha = 0.2
     )
   ) +
-  geom_node_text(
-    aes(
-      x = x*1.15, y=y*1.15, 
-      filter = leaf, 
-      label = str_trunc(as.character(motif_name),20,"right"), 
-      angle = -((-node_angle(x, y)+90)%%180)+90, 
-      hjust ='outward', 
-      colour = theme
-    ), 
-    size=2.5, alpha=1
-  ) +
-  # scale_fill_paletteer_d(viridis, inferno) +
   coord_fixed() +
-  scale_color_viridis_d(option = "B") +
+  scale_color_paletteer_d("ghibli::PonyoMedium") +
+  scale_alpha(guide = "none") +
+  scale_size(guide = "none") +
   theme_void() +
   theme(
-    legend.position="none",
+    legend.title = element_text("theme"), 
     plot.margin=unit(c(0,0,0,0),"cm")
-  ) +
-  expand_limits(x = c(-2, 2), y = c(-2, 2))
+  ) 
+
+# paletteer_d("ghibli::PonyoMedium")
+
 
 ```
 
