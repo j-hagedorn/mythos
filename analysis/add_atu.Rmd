@@ -1,6 +1,8 @@
 ---
-title: "Untitled"
-output: html_document
+title: "Incorporating Sequences"
+output:
+  md_document:
+    variant: markdown_github
 ---
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
